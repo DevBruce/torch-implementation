@@ -57,6 +57,9 @@ def get_rps(input_img_shape, fmap_shape, anchor_ratios, anchor_scales):
 
 
 def rm_cross_boundary_rps(region_proposals, img_height, img_width):
+    """
+    Remove Cross Boundary Region Proposals
+    """
     cross_boundary_rp_indices = np.where(
         (region_proposals[:, 0] < 0) |           # y1
         (region_proposals[:, 1] < 0) |           # x1
@@ -68,6 +71,9 @@ def rm_cross_boundary_rps(region_proposals, img_height, img_width):
 
 
 def get_rps_iou(region_proposals, gt_boxes):
+    """
+    Get IoU per Reion Proposals (Column 1 == GT Box1, Column 2 == GT Box2 ...)
+    """
     region_proposals_iou = np.zeros([len(region_proposals), len(gt_boxes)])
     
     for i in range(len(region_proposals)):
@@ -78,7 +84,9 @@ def get_rps_iou(region_proposals, gt_boxes):
 
 
 def get_rp_labels(rps_iou, num_gt_boxes, config):
-
+    """
+    Get Region Proposal Labels (Positivie or Negative) for Training RPN
+    """
     def _get_max_iou_per_gt_idx(rps_iou, num_gt_boxes, highest_iou_per_gt):
         indices = list()
         for i in range(num_gt_boxes):
@@ -89,6 +97,9 @@ def get_rp_labels(rps_iou, num_gt_boxes, config):
     highest_iou_per_gt = np.max(rps_iou, axis=0)
     highest_iou_per_gt_idx = _get_max_iou_per_gt_idx(rps_iou=rps_iou, num_gt_boxes=num_gt_boxes, highest_iou_per_gt=highest_iou_per_gt)
 
+    # Positive: 1
+    # Negative: 0
+    # None: -1
     rp_labels = np.full(rps_iou.shape[0], -1)
     rp_labels[highest_iou_per_anchor < config.rp_neg_iou_thr] = 0
     rp_labels[highest_iou_per_anchor >= config.rp_pos_iou_thr] = 1
