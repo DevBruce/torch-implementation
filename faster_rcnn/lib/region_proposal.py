@@ -1,8 +1,8 @@
 import numpy as np
-from libs.iou import get_iou
+from lib.iou import get_iou
 
 
-__all__ = ['get_rps', 'rm_cross_boundary_rps', 'get_rps_iou']
+__all__ = ['get_rps', 'rm_cross_boundary_rps', 'get_rps_iou', 'get_rp_labels']
 
 
 def get_rps(input_img_shape, fmap_shape, anchor_ratios, anchor_scales):
@@ -67,11 +67,31 @@ def rm_cross_boundary_rps(region_proposals, img_height, img_width):
 
 
 
-def get_rps_iou(region_proposals, gt_bboxes):
-    region_proposals_iou = np.zeros([len(region_proposals), len(gt_bboxes)])
+def get_rps_iou(region_proposals, gt_boxes):
+    region_proposals_iou = np.zeros([len(region_proposals), len(gt_boxes)])
     
     for i in range(len(region_proposals)):
-        for j in range(len(gt_bboxes)):
-            region_proposals_iou[i, j] = get_iou(boxA_pts=region_proposals[i], boxB_pts=gt_bboxes[j])
+        for j in range(len(gt_boxes)):
+            region_proposals_iou[i, j] = get_iou(boxA_pts=region_proposals[i], boxB_pts=gt_boxes[j])
             
     return region_proposals_iou
+
+
+def get_rp_labels(rps_iou, num_gt_boxes, config):
+
+    def _get_max_iou_per_gt_idx(rps_iou, num_gt_boxes, highest_iou_per_gt):
+        indices = list()
+        for i in range(num_gt_boxes):
+            indices.extend(list(np.where(rps_iou[:, i] == highest_iou_per_gt[i])[0]))
+        return list(set(indices))
+
+    highest_iou_per_anchor = np.max(rps_iou, axis=1)
+    highest_iou_per_gt = np.max(rps_iou, axis=0)
+    highest_iou_per_gt_idx = _get_max_iou_per_gt_idx(rps_iou=rps_iou, num_gt_boxes=num_gt_boxes, highest_iou_per_gt=highest_iou_per_gt)
+
+    rp_labels = np.full(rps_iou.shape[0], -1)
+    rp_labels[highest_iou_per_anchor < config.rp_neg_iou_thr] = 0
+    rp_labels[highest_iou_per_anchor >= config.rp_pos_iou_thr] = 1
+    rp_labels[highest_iou_per_gt_idx] = 1
+    
+    return rp_labels
